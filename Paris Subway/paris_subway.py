@@ -5,7 +5,7 @@ class station:
         self.__visited:bool = False
         self.__neighbors:list[tuple[station, int]] = []
 
-    def get_neighbors(self):
+    def get_neighbors(self) -> list[tuple[object, int]]:
         return self.__neighbors
 
     def add_neighbor_station(self, neighbor_station, distance:int) -> None:
@@ -15,7 +15,7 @@ class station:
             if not neighbor_station.contains_neighbor(self):
                 neighbor_station.add_neighbor_station(self, distance)
 
-    def contains_neighbor(self, neighbor):
+    def contains_neighbor(self, neighbor) -> bool:
         if not self.__neighbors:
             return False
 
@@ -110,10 +110,10 @@ def get_distances_table() -> list[list[int]]:
     [30, 21, 13, 11, 16, 17, 13, 25, 23, 20, 35, 31, 0, 5],
     [32, 24, 18, 17, 20, 20, 17, 30, 28, 23, 39, 37, 5, 0]]
 
-def main():
+def main() -> None:
     subway:list[station] = build_subway()
 
-    print(subway)
+    print_subway(subway)
 
 if __name__ == "__main__":
     main()
