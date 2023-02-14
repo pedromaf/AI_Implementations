@@ -1,12 +1,44 @@
+from queue import PriorityQueue
+
+TRAIN_VELOCITY:int = 30
+LINE_CHANGE_TIME:int = 4
+
 class station:
     def __init__(self, id:int, lines:list[str]) -> None:
         self.__id:int = id
         self.__lines: list[str] = lines
+        self.__distance:int = 0
+        self.__previous:station = None
+        self.__next:station = None
         self.__visited:bool = False
         self.__neighbors:list[tuple[station, int]] = []
 
-    def get_neighbors(self) -> list[tuple[object, int]]:
+    def set_neighbors(self, list:list[tuple[object, int]]) -> None:
+        self.neighbors = list
+
+    def set_distance(self, distance:int) -> None:
+        self.__distance = distance
+
+    def get_distance(self) -> int:
+        return self.__distance
+
+    def set_next(self, next) -> None:
+        self.__next = next
+    
+    def get_next(self):
+        return self.__next
+
+    def set_previous(self, previous) -> None:
+        self.__previous = previous
+    
+    def get_previous(self):
+        return self.__previous
+
+    def get_neighbors(self):
         return self.__neighbors
+
+    def get_lines(self) -> list[str]:
+        return self.__lines.copy()
 
     def add_neighbor_station(self, neighbor_station, distance:int) -> None:
             if not self.contains_neighbor(neighbor_station):
@@ -37,12 +69,52 @@ class station:
     def __str__(self) -> str:
         string:str = f"--- Station {self.__id + 1} ---\n"
         
+        string += f"Distance to destination: {self.__destination_distance}\n"
+
         if self.__neighbors:
             string += f"Neighbor stations:\n"
             for station in self.__neighbors:
                 string += f"- station {station[0].get_id() + 1} [distance: {station[1]} Km]\n"
 
         return string
+
+    def __eq__(self, other) -> bool:
+        if not other:
+            return False
+
+        return self.__distance == other.get_distance()
+
+    def __lt__(self, other) -> bool:
+        return self.__distance < other.get_distance()
+
+
+class solution:
+    def __init__(self) -> None:
+        self.__route:list[station] = []
+        self.__total_time_minutes:float = 0
+
+    def add_station(self, station:station) -> None:
+        self.__route.append(station)
+
+    def increase_total_time(self, minutes) -> None:
+        self.__total_time_minutes += minutes
+
+    def __str__(self) -> str:
+        string:str = ""
+    
+        if self.__route:
+            self.__route.reverse()
+
+            for station in self.__route:
+                string += f"Station {station.get_id() + 1}"
+
+                if station.get_next() != None:
+                    string += " -> "
+
+            string += f"\nTotal route time: {self.__total_time_minutes} minutes."
+        
+        return string
+
 
 def build_subway() -> list[station]:
     distances = get_distances_table()
@@ -110,10 +182,102 @@ def get_distances_table() -> list[list[int]]:
     [30, 21, 13, 11, 16, 17, 13, 25, 23, 20, 35, 31, 0, 5],
     [32, 24, 18, 17, 20, 20, 17, 30, 28, 23, 39, 37, 5, 0]]
 
+def get_common_line(station1:station, station2:station) -> str:
+    station1_lines:list[str] = station1.get_lines()
+    station2_lines:list[str] = station2.get_lines()
+
+    for line_s1 in station1_lines:
+        for line_s2 in station2_lines:
+            if line_s1 == line_s2:
+                return line_s1
+    
+    return None
+
+def build_solution(final_station:station) -> solution:
+    distances = get_distances_table()
+    new_solution: solution = solution()
+    current:station = final_station
+    previous:station = None
+    current_line:str = None
+
+    final_station_lines:list[str] = final_station.get_lines()
+
+    if len(final_station_lines) == 1:
+        current_line = final_station_lines.pop()
+    else:
+        previous = final_station.get_previous()
+
+        if previous != None:
+            current_line = get_common_line(previous, final_station)
+            previous = None
+    
+    if current_line == None:
+        return None
+
+    while current != None:
+        new_solution.add_station(current)
+        previous = current.get_previous()
+
+        if previous != None:
+            previous.set_next(current)
+            new_solution.increase_total_time((distances[previous.get_id()][current.get_id()] / TRAIN_VELOCITY) * 60)
+            
+            previous_lines = previous.get_lines()
+
+            if current_line not in previous_lines:
+                new_solution.increase_total_time(LINE_CHANGE_TIME)
+
+                current_line = get_common_line(current, previous)
+
+        current = previous
+
+    return new_solution
+
+def generate_children(current:station, destination_id:int) -> list[station]:
+    neighbors:list[tuple[station, int]] = current.get_neighbors()
+    distances = get_distances_table()
+    children:list[station] = []
+
+    for neighbor in neighbors:
+        if neighbor[0].is_visited():
+            continue
+
+        neighbor[0].set_distance(neighbor[1] + distances[neighbor[0].get_id()][destination_id])
+        neighbor[0].set_previous(current)
+        children.append(neighbor[0])
+
+    return children
+
+def find_best_route(subway:list[station], starting_station_id:int, destination_station_id:int) -> solution:
+    pqueue = PriorityQueue()
+    children:list[station] = None
+    current:station = None
+
+    pqueue.put(subway[starting_station_id])
+
+    while not pqueue.empty():
+        current = pqueue.get()
+        current.set_visited(True)
+
+        if current.get_id() == destination_station_id:
+            return build_solution(current)
+        
+        children = generate_children(current, destination_station_id)
+
+        for child in children:
+            pqueue.put(child)
+    
+    return None
+
 def main() -> None:
     subway:list[station] = build_subway()
+    best_route:solution = None
+    starting_station_id:int = 4
+    destination_station_id:int = 13
 
-    print_subway(subway)
+    best_route = find_best_route(subway, starting_station_id, destination_station_id)
+
+    print(best_route)
 
 if __name__ == "__main__":
     main()
